@@ -1,0 +1,18 @@
+services:
+  rembot:
+    build: .
+    image: ghcr.io/remy/rembot:latest
+    container_name: rembot
+    restart: unless-stopped
+    env_file: .env
+    # No ports are published — the bot only makes an outbound gateway connection.
+    volumes:
+      - rembot-data:/app/data # persists the ban log across restarts / rebuilds
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  rembot-data:
