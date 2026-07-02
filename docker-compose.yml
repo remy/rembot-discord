@@ -1,13 +1,15 @@
 services:
   rembot:
     build: .
-    image: ghcr.io/remy/rembot:latest
+    image: ghcr.io/remy/rembot-discord:latest
     container_name: rembot
     restart: unless-stopped
     env_file: .env
     # No ports are published — the bot only makes an outbound gateway connection.
     volumes:
       - rembot-data:/app/data # persists the ban log across restarts / rebuilds
+    labels:
+      com.centurylinklabs.watchtower.enable: 'true'
     logging:
       driver: json-file
       options:
