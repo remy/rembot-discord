@@ -119,8 +119,18 @@ rembot — last 2 of 2 action(s)
 • raider (id 987654321) — 2026-07-01 09:05 UTC — 2 ch (dry-run)
 ```
 
-> Slash commands are registered per-guild on startup (instant). If `/history` doesn't appear,
+> Slash commands are registered per-guild on startup (instant). If the commands don't appear,
 > re-invite the bot including the **`applications.commands`** scope (see step 4).
+
+## Status (`/status`)
+
+Run **`/status`** (mods-only, ephemeral) to check the bot is healthy and confirm its live config
+without SSHing into the host. It reports uptime, gateway latency, the current `ACTION`/dry-run
+mode, the trigger threshold and window, purge lookback, watched-channel scope, and how many
+actions have been logged.
+
+You can also check health from the host — see the log line `[rembot] Logged in as …` via
+`docker compose logs -f rembot`, or the bot's **Online** status in the member list.
 
 ## Notes
 

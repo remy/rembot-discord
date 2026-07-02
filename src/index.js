@@ -14,6 +14,7 @@ import BanStore from './store.js';
 const store = new BanStore(config.dataDir);
 const tracker = new DuplicateTracker(config);
 const enforcer = new Enforcer(config, tracker, store);
+const startedAt = Date.now();
 
 const historyCommand = new SlashCommandBuilder()
   .setName('history')
@@ -30,16 +31,38 @@ const historyCommand = new SlashCommandBuilder()
   .setDMPermission(false)
   .toJSON();
 
-/** Register the slash command in a guild (instant, unlike global registration). */
+const statusCommand = new SlashCommandBuilder()
+  .setName('status')
+  .setDescription('Show rembot health and current configuration')
+  .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
+  .setDMPermission(false)
+  .toJSON();
+
+const commands = [historyCommand, statusCommand];
+
+/** Register slash commands in a guild (instant, unlike global registration). */
 async function registerCommands(guild) {
   try {
-    await guild.commands.set([historyCommand]);
+    await guild.commands.set(commands);
   } catch (err) {
     console.error(
-      `[rembot] Could not register /history in "${guild.name}": ${err?.message ?? err}. ` +
+      `[rembot] Could not register commands in "${guild.name}": ${err?.message ?? err}. ` +
         'Re-invite the bot with the "applications.commands" scope.',
     );
   }
+}
+
+/** Format a millisecond duration as e.g. "3d 4h 12m". */
+function formatUptime(ms) {
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const parts = [];
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  parts.push(`${m}m`);
+  return parts.join(' ');
 }
 
 const client = new Client({
@@ -86,7 +109,8 @@ client.once(Events.ClientReady, async (c) => {
 client.on(Events.GuildCreate, (guild) => registerCommands(guild));
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== 'history') return;
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'history' && interaction.commandName !== 'status') return;
 
   // Runtime permission re-check (belt to setDefaultMemberPermissions).
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) {
@@ -97,6 +121,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
+  if (interaction.commandName === 'status') {
+    await handleStatus(interaction);
+  } else {
+    await handleHistory(interaction);
+  }
+});
+
+async function handleHistory(interaction) {
   const limit = interaction.options.getInteger('limit') ?? 20;
   const records = store.list(limit);
   if (records.length === 0) {
@@ -127,7 +159,31 @@ client.on(Events.InteractionCreate, async (interaction) => {
     flags: MessageFlags.Ephemeral,
     allowedMentions: { parse: [] }, // hard guarantee: no pings
   });
-});
+}
+
+async function handleStatus(interaction) {
+  const scope =
+    config.monitoredChannelIds.size > 0
+      ? `${config.monitoredChannelIds.size} channel(s) only`
+      : 'all channels';
+  const lines = [
+    `**rembot status** — 🟢 online as ${interaction.client.user.tag}`,
+    `• Uptime: ${formatUptime(Date.now() - startedAt)}`,
+    `• Gateway latency: ${Math.round(interaction.client.ws.ping)} ms`,
+    `• Action: \`${config.action}\`${config.dryRun ? ' _(DRY RUN — no enforcement)_' : ''}`,
+    `• Trigger: same message in ≥${config.dupChannelThreshold} channels within ${
+      config.windowMs / 1000
+    }s`,
+    `• Purge lookback: ${config.deleteSeconds}s · min message length: ${config.minMessageLength}`,
+    `• Watching: ${scope}`,
+    `• Actions logged: ${store.count()}`,
+  ];
+  await interaction.reply({
+    content: lines.join('\n'),
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+}
 
 client.on(Events.MessageCreate, async (message) => {
   try {
