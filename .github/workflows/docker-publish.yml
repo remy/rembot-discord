@@ -1,5 +1,5 @@
-# Build the PickFlix image and push it to GHCR on every push to main.
-# Watchtower on the NAS watches ghcr.io/remy/pickflix:latest and auto-updates
+# Build the rembot-discord image and push it to GHCR on every push to main.
+# Watchtower on the NAS watches ghcr.io/remy/rembot-discord:latest and auto-updates
 # the running container when a new image is published.
 
 name: Publish Docker image
@@ -43,7 +43,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: worker/Dockerfile
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
